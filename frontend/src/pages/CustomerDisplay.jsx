@@ -229,7 +229,7 @@ export default function CustomerDisplay() {
 
   return (
     <div
-      className="customer-display min-h-screen overflow-x-hidden"
+      className="customer-display h-screen flex flex-col overflow-hidden"
       style={{
         background: `linear-gradient(135deg, ${state.store?.display_bg_color || "#0F1115"}, ${state.store?.display_card_color || "#161920"}, ${state.store?.display_bg_color || "#0F1115"})`,
         color: state.store?.display_text_color || "#FFFFFF",
@@ -265,7 +265,7 @@ export default function CustomerDisplay() {
 
 function TopBar({ store, code, now }) {
   return (
-    <div className="border-b border-white/10 backdrop-blur px-6 py-4 flex items-center justify-between" style={{ backgroundColor: `${store?.display_card_color || "#161920"}CC` }}>
+    <div className="shrink-0 sticky top-0 z-40 border-b border-white/10 backdrop-blur px-6 py-4 flex items-center justify-between" style={{ backgroundColor: `${store?.display_card_color || "#161920"}CC` }}>
       <div className="flex items-center gap-4">
         <div className="w-12 h-12 rounded-xl bg-primary/20 flex items-center justify-center overflow-hidden">
           {store?.logo_url
@@ -317,9 +317,9 @@ function CheckoutScreen({ state, busy, onPick, showPaymentMethods = true, error 
   const configuredMethods = (state.store?.payment_methods || state.payment_methods || []).filter((m) => m.enabled !== false);
   const methods = configuredMethods.length > 0 ? configuredMethods.map(toDisplayMethod) : METHODS;
   return (
-    <div className="p-6 space-y-6">
+    <div className="flex-1 min-h-0 flex flex-col overflow-hidden p-6 space-y-6">
       <div
-        className="rounded-3xl border border-primary/30 p-6 lg:p-8 shadow-2xl"
+        className="shrink-0 rounded-3xl border border-primary/30 p-6 lg:p-8 shadow-2xl"
         style={{ background: "linear-gradient(135deg, var(--display-card), color-mix(in srgb, var(--display-accent) 18%, var(--display-card)))" }}
       >
         <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
@@ -333,10 +333,10 @@ function CheckoutScreen({ state, busy, onPick, showPaymentMethods = true, error 
         </div>
       </div>
 
-      <div className="grid lg:grid-cols-12 gap-6">
+      <div className="grid lg:grid-cols-12 gap-6 flex-1 min-h-0">
       {/* Left: cart */}
-      <div className={`${showPaymentMethods ? "lg:col-span-7" : "lg:col-span-12"} space-y-4`}>
-        <div>
+      <div className={`${showPaymentMethods ? "lg:col-span-7" : "lg:col-span-12"} min-h-0 flex flex-col space-y-4`}>
+        <div className="shrink-0">
           <div className="text-xs uppercase tracking-widest text-primary font-semibold">Pesanan Anda</div>
           <h2 className="font-heading text-3xl lg:text-4xl font-extrabold mt-1">
             {state.items.length} Item
@@ -344,8 +344,8 @@ function CheckoutScreen({ state, busy, onPick, showPaymentMethods = true, error 
           {state.customer_name && <div className="text-white/60 mt-1">Untuk: {state.customer_name}</div>}
         </div>
 
-        <div className="border border-white/10 rounded-2xl overflow-hidden" style={{ backgroundColor: "var(--display-card)" }}>
-          <div className="max-h-[52vh] overflow-y-auto divide-y divide-white/5">
+        <div className="flex-1 min-h-0 flex flex-col border border-white/10 rounded-2xl overflow-hidden" style={{ backgroundColor: "var(--display-card)" }}>
+          <div className="flex-1 min-h-0 overflow-y-auto divide-y divide-white/5">
             {state.items.map((i, idx) => (
               <div key={idx} className="p-4 flex items-center gap-4 animate-in fade-in slide-in-from-bottom-2">
                 <div className="w-11 h-11 rounded-lg bg-primary/20 text-primary font-mono font-bold flex items-center justify-center flex-shrink-0">
@@ -369,15 +369,16 @@ function CheckoutScreen({ state, busy, onPick, showPaymentMethods = true, error 
       </div>
 
       {/* Right: payment methods */}
-      {showPaymentMethods && <div className="lg:col-span-5 space-y-4">
-        <div>
+      {showPaymentMethods && <div className="lg:col-span-5 min-h-0 flex flex-col space-y-4">
+        <div className="shrink-0">
           <div className="text-xs uppercase tracking-widest text-primary font-semibold">Pilih Pembayaran</div>
           <h2 className="font-heading text-3xl font-bold mt-1">Bayar dengan</h2>
           <p className="text-sm text-white/60 mt-1">Ketuk metode pembayaran yang Anda inginkan.</p>
           {error && <p className="text-sm text-red-300 mt-2">{error}</p>}
         </div>
 
-        <div className="grid grid-cols-1 gap-3">
+        <div className="flex-1 min-h-0 overflow-y-auto pr-2">
+          <div className="grid grid-cols-1 gap-3">
           {methods.map((m) => (
             <button
               key={m.k}
@@ -398,7 +399,8 @@ function CheckoutScreen({ state, busy, onPick, showPaymentMethods = true, error 
                 <div className="text-white/40 group-hover:text-primary transition-colors text-2xl">→</div>
               </div>
             </button>
-          ))}
+            ))}
+          </div>
         </div>
       </div>
       }
