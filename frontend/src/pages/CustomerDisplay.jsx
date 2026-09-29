@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 
 const idr = (n) => "Rp " + Math.round(Number(n) || 0).toLocaleString("id-ID");
+const mediaUrl = (url) => url?.startsWith("http") ? url : `${process.env.REACT_APP_BACKEND_URL || ""}${url || ""}`;
 
 const METHODS = [
   { k: "cash", label: "Tunai", desc: "Bayar langsung ke kasir", icon: Wallet, color: "from-emerald-500 to-emerald-600" },
@@ -19,7 +20,7 @@ const METHODS = [
 
 export default function CustomerDisplay() {
   const { code } = useParams();
-  const CODE = (code || "").toUpperCase();
+  const CODE = (code || localStorage.getItem("rizpos_display_code") || "").toUpperCase();
   const [state, setState] = useState(null);
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
@@ -33,12 +34,13 @@ export default function CustomerDisplay() {
 
   // Load Midtrans snap.js
   useEffect(() => {
-    if (document.getElementById("midtrans-snap-cd")) return;
+    if (document.getElementById("midtrans-snap-cd")) return () => {};
     const s = document.createElement("script");
     s.id = "midtrans-snap-cd";
     s.src = "https://app.sandbox.midtrans.com/snap/snap.js";
     s.onload = () => { snapLoaded.current = true; };
     document.body.appendChild(s);
+    return () => { s.onload = null; };
   }, []);
 
   const fetchState = useCallback(async () => {
@@ -124,7 +126,7 @@ export default function CustomerDisplay() {
     const savedCode = (localStorage.getItem("rizpos_display_code") || "").toUpperCase();
     if (savedCode && savedCode !== CODE) {
       window.location.replace(`/display/${savedCode}`);
-      return undefined;
+      return () => {};
     }
     const onStorage = (event) => {
       if (event.key !== "rizpos_display_code") return;
@@ -140,8 +142,8 @@ export default function CustomerDisplay() {
   // Poll gateway payment status once intent exists
   useEffect(() => {
     const gw = state?.payment_intent?.gateway;
-    if (!gw || (gw !== "midtrans" && gw !== "tripay")) return;
-    if (state?.status === "paid") return;
+    if (!gw || (gw !== "midtrans" && gw !== "tripay")) return () => {};
+    if (state?.status === "paid") return () => {};
     const id = setInterval(async () => {
       try {
         const { data } = await axios.get(`${API}/display/public/${CODE}/payment-status`);
@@ -227,24 +229,32 @@ export default function CustomerDisplay() {
     );
   }
 
+  const displayBg = state.store?.display_bg_color || "#0F1115";
+  const displayCard = state.store?.display_card_color || "#161920";
+
   return (
     <div
       className="customer-display h-screen flex flex-col overflow-hidden"
       style={{
-        background: `linear-gradient(135deg, ${state.store?.display_bg_color || "#0F1115"}, ${state.store?.display_card_color || "#161920"}, ${state.store?.display_bg_color || "#0F1115"})`,
+        background: `linear-gradient(135deg, color-mix(in srgb, ${displayBg} 15%, #0F1115) 0%, ${displayCard} 52%, color-mix(in srgb, ${displayBg} 15%, #0F1115) 100%)`,
         color: state.store?.display_text_color || "#FFFFFF",
         "--display-accent": state.store?.display_accent_color || "#F97316",
-        "--display-card": state.store?.display_card_color || "#161920",
+        "--display-card": displayCard,
       }}
     >
       <style>{`
         .customer-display .text-primary { color: var(--display-accent) !important; }
         .customer-display .bg-primary { background-color: var(--display-accent) !important; }
         .customer-display .border-primary { border-color: var(--display-accent) !important; }
+        @keyframes customer-display-marquee { from { transform: translateX(100%); } to { transform: translateX(-100%); } }
+        .customer-display .cashier-marquee-window { width: min(220px, 24vw); overflow: hidden; white-space: nowrap; }
+        .customer-display .cashier-marquee { display: inline-block; animation: customer-display-marquee 8s linear infinite; white-space: nowrap; }
+        @keyframes customer-display-slide-left { from { transform: translateX(100%); opacity: 0.55; } to { transform: translateX(0); opacity: 1; } }
+        .customer-display .slider-image-slide-left { animation: customer-display-slide-left 700ms cubic-bezier(0.22, 1, 0.36, 1); }
       `}</style>
       <Confetti active={confetti} />
 
-      <TopBar store={state.store} code={CODE} now={now} />
+      <TopBar store={state.store} code={CODE} cashierName={state.cashier_name} now={now} />
 
       {state.status === "paid" ? (
         <PaidScreen state={state} />
@@ -263,7 +273,7 @@ export default function CustomerDisplay() {
 
 /* ---------------- Sections ---------------- */
 
-function TopBar({ store, code, now }) {
+function TopBar({ store, code, cashierName, now }) {
   return (
     <div className="shrink-0 sticky top-0 z-40 border-b border-white/10 backdrop-blur px-6 py-4 flex items-center justify-between" style={{ backgroundColor: `${store?.display_card_color || "#161920"}CC` }}>
       <div className="flex items-center gap-4">
@@ -276,6 +286,10 @@ function TopBar({ store, code, now }) {
           <div className="font-heading font-extrabold text-2xl tracking-tight leading-none">{store?.name || "RizPOS"}</div>
           <div className="text-xs text-white/60 mt-1">{store?.tagline || "Point of Sale"}</div>
         </div>
+      </div>
+      <div className="hidden md:flex flex-1 min-w-0 mx-6 items-center justify-center gap-2 text-sm lg:text-base text-white/70 font-medium">
+        <span className="shrink-0">Kasir :</span>
+        <span className="cashier-marquee-window"><span className="cashier-marquee text-primary font-bold">{cashierName || "-"}</span></span>
       </div>
       <div className="flex items-center gap-6">
         <div className="text-right">
@@ -313,37 +327,58 @@ function IdleScreen({ store, code }) {
   );
 }
 
+function DisplaySlider({ images }) {
+  const [index, setIndex] = useState(0);
+
+  useEffect(() => {
+    setIndex(0);
+    if (images.length < 2) return () => {};
+    const timer = window.setInterval(() => setIndex((current) => (current + 1) % images.length), 5000);
+    return () => window.clearInterval(timer);
+  }, [images.length]);
+
+  if (!images.length) return null;
+  return (
+    <div className="relative mt-2 overflow-hidden rounded-2xl border border-white/10 bg-black/20 aspect-[16/9]">
+      <img key={images[index]} src={mediaUrl(images[index])} alt="Promosi" className="slider-image-slide-left w-full h-full object-cover" />
+      {images.length > 1 && <div className="absolute bottom-3 left-0 right-0 flex justify-center gap-1.5">
+        {images.map((_, dot) => <span key={dot} className={`h-1.5 rounded-full transition-all ${dot === index ? "w-5 bg-primary" : "w-1.5 bg-white/50"}`} />)}
+      </div>}
+    </div>
+  );
+}
+
 function CheckoutScreen({ state, busy, onPick, showPaymentMethods = true, error }) {
   const configuredMethods = (state.store?.payment_methods || state.payment_methods || []).filter((m) => m.enabled !== false);
   const methods = configuredMethods.length > 0 ? configuredMethods.map(toDisplayMethod) : METHODS;
   return (
     <div className="flex-1 min-h-0 flex flex-col overflow-hidden p-6 space-y-6">
-      <div
-        className="shrink-0 rounded-3xl border border-primary/30 p-6 lg:p-8 shadow-2xl"
-        style={{ background: "linear-gradient(135deg, var(--display-card), color-mix(in srgb, var(--display-accent) 18%, var(--display-card)))" }}
-      >
-        <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
-          <div>
-            <div className="text-xs uppercase tracking-[0.3em] text-primary font-semibold">Nilai Total</div>
-            <div className="text-white/60 text-sm mt-2">Jumlah yang harus dibayar</div>
-          </div>
-          <div className="font-mono font-extrabold text-5xl lg:text-7xl text-primary tracking-tight leading-none">
-            {idr(state.total)}
+      <div className="grid lg:grid-cols-12 gap-6 flex-1 min-h-0">
+      {/* Total card */}
+      <div className="lg:col-span-4 self-start min-h-0 flex flex-col gap-4">
+        <div
+          className="shrink-0 rounded-3xl border border-primary/30 p-6 lg:p-8 shadow-2xl"
+          style={{ background: "linear-gradient(135deg, var(--display-card), color-mix(in srgb, var(--display-accent) 18%, var(--display-card)))" }}
+        >
+          <div className="flex flex-col gap-5">
+            <div>
+              <div className="text-xs uppercase tracking-[0.3em] text-primary font-semibold">Pesanan Anda</div>
+              <div className="font-heading text-xl lg:text-2xl font-bold mt-2">{state.items.length} Item</div>
+              {state.customer_name && <div className="text-white/60 text-sm mt-1">Untuk: {state.customer_name}</div>}
+            </div>
+            <div className="text-left">
+              <div className="font-mono font-extrabold text-5xl lg:text-6xl text-primary tracking-tight leading-none">
+                {idr(state.total)}
+              </div>
+              <div className="text-white/60 text-sm mt-2">Jumlah yang harus dibayar</div>
+            </div>
           </div>
         </div>
+        <DisplaySlider images={state.store?.display_slider_images || []} />
       </div>
 
-      <div className="grid lg:grid-cols-12 gap-6 flex-1 min-h-0">
       {/* Left: cart */}
-      <div className={`${showPaymentMethods ? "lg:col-span-7" : "lg:col-span-12"} min-h-0 flex flex-col space-y-4`}>
-        <div className="shrink-0">
-          <div className="text-xs uppercase tracking-widest text-primary font-semibold">Pesanan Anda</div>
-          <h2 className="font-heading text-3xl lg:text-4xl font-extrabold mt-1">
-            {state.items.length} Item
-          </h2>
-          {state.customer_name && <div className="text-white/60 mt-1">Untuk: {state.customer_name}</div>}
-        </div>
-
+      <div className={`${showPaymentMethods ? "lg:col-span-5" : "lg:col-span-8"} min-h-0 flex flex-col space-y-4`}>
         <div className="flex-1 min-h-0 flex flex-col border border-white/10 rounded-2xl overflow-hidden" style={{ backgroundColor: "var(--display-card)" }}>
           <div className="flex-1 min-h-0 overflow-y-auto divide-y divide-white/5">
             {state.items.map((i, idx) => (
@@ -369,7 +404,7 @@ function CheckoutScreen({ state, busy, onPick, showPaymentMethods = true, error 
       </div>
 
       {/* Right: payment methods */}
-      {showPaymentMethods && <div className="lg:col-span-5 min-h-0 flex flex-col space-y-4">
+      {showPaymentMethods && <div className="lg:col-span-3 min-h-0 flex flex-col space-y-4">
         <div className="shrink-0">
           <div className="text-xs uppercase tracking-widest text-primary font-semibold">Pilih Pembayaran</div>
           <h2 className="font-heading text-3xl font-bold mt-1">Bayar dengan</h2>

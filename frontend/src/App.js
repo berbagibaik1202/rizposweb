@@ -9,6 +9,8 @@ import Products from "./pages/Products";
 import Categories from "./pages/Categories";
 import Customers from "./pages/Customers";
 import Transactions from "./pages/Transactions";
+import Purchases from "./pages/Purchases";
+import Finance from "./pages/Finance";
 import Reports from "./pages/Reports";
 import Users from "./pages/Users";
 import Settings from "./pages/Settings";
@@ -32,6 +34,7 @@ function App() {
         <Toaster richColors position="top-right" />
         <Routes>
           <Route path="/login" element={<Login />} />
+          <Route path="/display" element={<CustomerDisplay />} />
           <Route path="/display/:code" element={<CustomerDisplay />} />
           <Route path="/" element={<Protected><DashboardLayout /></Protected>}>
             <Route index element={<Dashboard />} />
@@ -40,6 +43,8 @@ function App() {
             <Route path="categories" element={<Categories />} />
             <Route path="customers" element={<Customers />} />
             <Route path="transactions" element={<Transactions />} />
+            <Route path="purchases" element={<Protected adminOnly><Purchases /></Protected>} />
+            <Route path="finance" element={<Protected adminOnly><Finance /></Protected>} />
             <Route path="reports" element={<Reports />} />
             <Route path="users" element={<Protected adminOnly><Users /></Protected>} />
             <Route path="settings" element={<Protected adminOnly><Settings /></Protected>} />

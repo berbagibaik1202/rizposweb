@@ -28,7 +28,7 @@ export default function Products() {
     api.get("/products").then((r) => setProducts(r.data));
     api.get("/categories").then((r) => setCategories(r.data));
   };
-  useEffect(load, []);
+  useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const startAdd = () => { setForm(empty); setEditId(null); setOpen(true); };
   const startEdit = (p) => { setForm({ ...empty, ...p, category_id: p.category_id || "" }); setEditId(p.id); setOpen(true); };

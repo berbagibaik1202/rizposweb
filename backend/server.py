@@ -24,8 +24,9 @@ import jwt
 from datetime import datetime, timezone, timedelta
 from typing import List, Optional, Literal, Any, Dict
 
-from fastapi import FastAPI, APIRouter, HTTPException, Depends, Request, Response, Query
+from fastapi import FastAPI, APIRouter, HTTPException, Depends, Request, Response, Query, UploadFile, File
 from starlette.middleware.cors import CORSMiddleware
+from starlette.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, EmailStr, ConfigDict
 from mysql_store import MySQLDatabase
 
@@ -34,6 +35,9 @@ db = MySQLDatabase()
 
 app = FastAPI(title="RizPOS API")
 api_router = APIRouter(prefix="/api")
+MEDIA_DIR = ROOT_DIR / "media"
+MEDIA_DIR.mkdir(exist_ok=True)
+app.mount("/media", StaticFiles(directory=MEDIA_DIR), name="media")
 
 JWT_ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 12  # 12 hours
@@ -150,6 +154,39 @@ class ProductIn(BaseModel):
     active: bool = True
 
 
+class SupplierIn(BaseModel):
+    name: str
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    address: Optional[str] = None
+    active: bool = True
+
+
+class PurchaseItemIn(BaseModel):
+    product_id: str
+    quantity: int = Field(gt=0)
+    unit_cost: float = Field(ge=0)
+
+
+class PurchaseIn(BaseModel):
+    supplier_id: str
+    invoice_no: str = Field(min_length=1)
+    items: List[PurchaseItemIn] = Field(min_length=1)
+    payment_method: Literal["cash", "transfer", "payable"] = "cash"
+    note: Optional[str] = None
+
+
+class PurchasePaymentIn(BaseModel):
+    payment_method: Literal["cash", "transfer"]
+
+
+class FinanceEntryIn(BaseModel):
+    kind: Literal["income", "expense"]
+    amount: float = Field(gt=0)
+    category: str = "Lainnya"
+    description: str = ""
+
+
 class CustomerIn(BaseModel):
     name: str
     phone: Optional[str] = None
@@ -238,6 +275,8 @@ class StoreSettings(BaseModel):
     display_text_color: str = "#FFFFFF"
     display_card_color: str = "#161920"
     display_welcome: str = "Selamat Datang"
+    opening_balance: float = Field(default=0, ge=0)
+    display_slider_images: List[str] = Field(default_factory=list)
 
 
 # ---------- Auth Endpoints ----------
@@ -391,6 +430,110 @@ async def delete_product(pid: str, _: dict = Depends(require_admin)):
     return {"ok": True}
 
 
+# ---------- Suppliers & purchases ----------
+@api_router.get("/suppliers")
+async def list_suppliers(_: dict = Depends(get_current_user)):
+    return await db.suppliers.find({"active": {"$ne": False}}, {"_id": 0}).sort("name", 1).to_list(2000)
+
+
+@api_router.post("/suppliers")
+async def create_supplier(body: SupplierIn, _: dict = Depends(require_admin)):
+    doc = {"id": new_id(), **body.model_dump(), "created_at": now_iso()}
+    await db.suppliers.insert_one(doc)
+    doc.pop("_id", None)
+    return doc
+
+
+@api_router.patch("/suppliers/{sid}")
+async def update_supplier(sid: str, body: SupplierIn, _: dict = Depends(require_admin)):
+    res = await db.suppliers.update_one({"id": sid}, {"$set": body.model_dump()})
+    if res.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Supplier tidak ditemukan")
+    return {"ok": True}
+
+
+@api_router.delete("/suppliers/{sid}")
+async def delete_supplier(sid: str, _: dict = Depends(require_admin)):
+    if await db.purchases.find_one({"supplier_id": sid}):
+        raise HTTPException(status_code=400, detail="Supplier sudah memiliki riwayat pembelian")
+    await db.suppliers.update_one({"id": sid}, {"$set": {"active": False}})
+    return {"ok": True}
+
+
+@api_router.get("/purchases")
+async def list_purchases(_: dict = Depends(get_current_user)):
+    rows = await db.purchases.find({}, {"_id": 0}).sort("created_at", -1).limit(2000).to_list(2000)
+    suppliers = await db.suppliers.find({}, {"_id": 0}).to_list(2000)
+    supplier_map = {s["id"]: s.get("name", "") for s in suppliers}
+    for row in rows:
+        row["supplier_name"] = supplier_map.get(row.get("supplier_id"), "Supplier tidak ditemukan")
+    return rows
+
+
+@api_router.post("/purchases")
+async def create_purchase(body: PurchaseIn, user: dict = Depends(require_admin)):
+    supplier = await db.suppliers.find_one({"id": body.supplier_id, "active": {"$ne": False}})
+    if not supplier:
+        raise HTTPException(status_code=404, detail="Supplier tidak ditemukan")
+    if await db.purchases.find_one({"invoice_no": body.invoice_no.strip()}):
+        raise HTTPException(status_code=400, detail="Nomor faktur sudah pernah digunakan")
+
+    items = []
+    total = 0.0
+    for item in body.items:
+        product = await db.products.find_one({"id": item.product_id})
+        if not product:
+            raise HTTPException(status_code=404, detail=f"Produk tidak ditemukan: {item.product_id}")
+        subtotal = round(item.quantity * item.unit_cost, 2)
+        total += subtotal
+        items.append({
+            "product_id": product["id"],
+            "sku": product.get("sku"),
+            "name": product.get("name"),
+            "unit": product.get("unit", "pcs"),
+            "quantity": item.quantity,
+            "unit_cost": item.unit_cost,
+            "subtotal": subtotal,
+        })
+
+    now = now_iso()
+    doc = {
+        "id": new_id(),
+        "supplier_id": supplier["id"],
+        "supplier_name": supplier.get("name"),
+        "invoice_no": body.invoice_no.strip(),
+        "items": items,
+        "subtotal": round(total, 2),
+        "total": round(total, 2),
+        "payment_method": body.payment_method,
+        "payment_status": "unpaid" if body.payment_method == "payable" else "paid",
+        "note": body.note,
+        "created_by": user.get("id"),
+        "created_by_name": user.get("name", user.get("email")),
+        "received_at": now,
+        "created_at": now,
+    }
+    for item in items:
+        await db.products.update_one(
+            {"id": item["product_id"]},
+            {"$inc": {"stock": item["quantity"]}, "$set": {"cost": item["unit_cost"]}},
+        )
+    await db.purchases.insert_one(doc)
+    return doc
+
+
+@api_router.post("/purchases/{purchase_id}/pay")
+async def pay_purchase(purchase_id: str, body: PurchasePaymentIn, _: dict = Depends(require_admin)):
+    purchase = await db.purchases.find_one({"id": purchase_id})
+    if not purchase:
+        raise HTTPException(status_code=404, detail="Pembelian tidak ditemukan")
+    await db.purchases.update_one(
+        {"id": purchase_id},
+        {"$set": {"payment_method": body.payment_method, "payment_status": "paid", "paid_at": now_iso()}},
+    )
+    return {"ok": True, "payment_method": body.payment_method, "payment_status": "paid"}
+
+
 # ---------- Customers ----------
 @api_router.get("/customers")
 async def list_customers(_: dict = Depends(get_current_user)):
@@ -438,14 +581,24 @@ async def create_transaction(body: TransactionIn, user: dict = Depends(get_curre
 
     change = round(body.amount_paid - total, 2) if body.payment_method == "cash" else 0
 
-    # Deduct stock
+    # Snapshot HPP at the time of sale so historical profit stays accurate
+    # even when the product's purchase cost changes later.
+    sale_items = []
+    cost_total = 0.0
     for it in body.items:
+        product = await db.products.find_one({"id": it.product_id})
+        unit_cost = float((product or {}).get("cost", 0) or 0)
+        item_doc = it.model_dump()
+        item_doc["cost"] = unit_cost
+        item_doc["cost_subtotal"] = round(unit_cost * it.quantity, 2)
+        sale_items.append(item_doc)
+        cost_total += item_doc["cost_subtotal"]
         await db.products.update_one({"id": it.product_id}, {"$inc": {"stock": -it.quantity}})
 
     doc = {
         "id": new_id(),
         "receipt_no": _generate_receipt_no(),
-        "items": [i.model_dump() for i in body.items],
+        "items": sale_items,
         "customer_id": body.customer_id,
         "cashier_id": user["id"],
         "cashier_name": user.get("name", user["email"]),
@@ -456,6 +609,8 @@ async def create_transaction(body: TransactionIn, user: dict = Depends(get_curre
         "tax_rate": body.tax_rate,
         "tax_amount": tax_amount,
         "total": total,
+        "cost_total": round(cost_total, 2),
+        "profit": round(total - cost_total, 2),
         "amount_paid": body.amount_paid,
         "change": change,
         "note": body.note,
@@ -617,6 +772,85 @@ async def sales_report(
     }
 
 
+# ---------- Finance ----------
+@api_router.get("/finance")
+async def finance_summary(
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    _: dict = Depends(get_current_user),
+):
+    settings = await db.settings.find_one({"id": "store"}, {"_id": 0}) or {}
+    opening_balance = float(settings.get("opening_balance", 0) or 0)
+    txs = await db.transactions.find({}, {"_id": 0}).sort("created_at", -1).limit(5000).to_list(5000)
+    products = await db.products.find({}, {"_id": 0}).to_list(5000)
+    product_costs = {p.get("id"): float(p.get("cost", 0) or 0) for p in products}
+    purchases = await db.purchases.find({"payment_status": "paid"}, {"_id": 0}).sort("created_at", -1).limit(5000).to_list(5000)
+    entries = await db.finance_entries.find({}, {"_id": 0}).sort("created_at", -1).limit(5000).to_list(5000)
+
+    def in_period(value: Optional[str]) -> bool:
+        if not value:
+            return False
+        if date_from and value < date_from:
+            return False
+        if date_to and value > date_to + "T99":
+            return False
+        return True
+
+    cash_in = 0.0
+    cash_out = 0.0
+    profit = 0.0
+    ledger = []
+    for tx in txs:
+        if not in_period(tx.get("created_at")):
+            continue
+        amount = float(tx.get("total", 0) or 0)
+        if tx.get("profit") is not None:
+            tx_profit = float(tx.get("profit", 0) or 0)
+        else:
+            # Older sales did not store an HPP snapshot; use the current HPP
+            # as a best-effort fallback while new sales remain exact.
+            fallback_cost = sum(
+                float(item.get("cost", product_costs.get(item.get("product_id"), 0)) or 0) * int(item.get("quantity", 0) or 0)
+                for item in tx.get("items", [])
+            )
+            tx_profit = amount - fallback_cost
+        cash_in += amount
+        profit += tx_profit
+        ledger.append({"id": tx.get("id"), "date": tx.get("created_at"), "type": "income", "category": "Penjualan", "description": tx.get("receipt_no", "Transaksi penjualan"), "amount": amount})
+    for purchase in purchases:
+        paid_date = purchase.get("paid_at") or purchase.get("created_at")
+        if not in_period(paid_date):
+            continue
+        amount = float(purchase.get("total", 0) or 0)
+        cash_out += amount
+        ledger.append({"id": purchase.get("id"), "date": paid_date, "type": "expense", "category": "Pembelian", "description": f"Faktur {purchase.get('invoice_no', '-')}", "amount": amount})
+    for entry in entries:
+        if not in_period(entry.get("created_at")):
+            continue
+        amount = float(entry.get("amount", 0) or 0)
+        if entry.get("kind") == "income":
+            cash_in += amount
+        else:
+            cash_out += amount
+        ledger.append({"id": entry.get("id"), "date": entry.get("created_at"), "type": entry.get("kind"), "category": entry.get("category", "Lainnya"), "description": entry.get("description", ""), "amount": amount})
+    ledger.sort(key=lambda row: row.get("date", ""), reverse=True)
+    return {
+        "opening_balance": opening_balance,
+        "cash_in": round(cash_in, 2),
+        "cash_out": round(cash_out, 2),
+        "balance": round(opening_balance + cash_in - cash_out, 2),
+        "profit": round(profit, 2),
+        "ledger": ledger[:500],
+    }
+
+
+@api_router.post("/finance/entries")
+async def create_finance_entry(body: FinanceEntryIn, user: dict = Depends(require_admin)):
+    doc = {"id": new_id(), **body.model_dump(), "created_by": user.get("id"), "created_at": now_iso()}
+    await db.finance_entries.insert_one(doc)
+    return doc
+
+
 # ---------- Settings ----------
 @api_router.get("/settings")
 async def get_settings(_: dict = Depends(get_current_user)):
@@ -643,6 +877,28 @@ async def update_settings(body: StoreSettings, _: dict = Depends(require_admin))
     doc = {"id": "store", **body.model_dump()}
     await db.settings.update_one({"id": "store"}, {"$set": doc}, upsert=True)
     return doc
+
+
+@api_router.post("/settings/display-slider")
+async def upload_display_slider(file: UploadFile = File(...), _: dict = Depends(require_admin)):
+    if not file.content_type or not file.content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="File slider harus berupa gambar")
+    content = await file.read()
+    if len(content) > 5 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="Ukuran gambar maksimal 5 MB")
+    extension = Path(file.filename or "image").suffix.lower()
+    if extension not in {".jpg", ".jpeg", ".png", ".webp", ".gif"}:
+        extension = ".jpg"
+    slider_dir = MEDIA_DIR / "display-slider"
+    slider_dir.mkdir(exist_ok=True)
+    filename = f"{uuid.uuid4().hex}{extension}"
+    (slider_dir / filename).write_bytes(content)
+    url = f"/media/display-slider/{filename}"
+    settings = await db.settings.find_one({"id": "store"}, {"_id": 0}) or {"id": "store"}
+    images = list(settings.get("display_slider_images") or [])
+    images.append(url)
+    await db.settings.update_one({"id": "store"}, {"$set": {"display_slider_images": images}}, upsert=True)
+    return {"url": url, "images": images}
 
 
 # ---------- Barcode lookup ----------
@@ -683,6 +939,23 @@ def _compute_total(items: List[CartItem], discount: float, tax_rate: float) -> t
     tax_amount = int(round(subtotal * (tax_rate / 100.0)))
     total = int(subtotal - int(discount) + tax_amount)
     return subtotal, tax_amount, int(discount), total
+
+
+def _tripay_order_items(items: List[CartItem], discount: int, tax_amount: int, total: int) -> list:
+    """Build Tripay items whose price*quantity sum exactly equals amount."""
+    order_items = [
+        {"sku": i.product_id[:24], "name": i.name[:50], "price": int(i.price), "quantity": int(i.quantity)}
+        for i in items
+    ]
+    if discount > 0:
+        order_items.append({"sku": "DISCOUNT", "name": "Diskon", "price": -discount, "quantity": 1})
+    if tax_amount > 0:
+        order_items.append({"sku": "TAX", "name": "Pajak", "price": tax_amount, "quantity": 1})
+    item_total = sum(item["price"] * item["quantity"] for item in order_items)
+    adjustment = total - item_total
+    if adjustment:
+        order_items.append({"sku": "ADJUSTMENT", "name": "Penyesuaian Pembulatan", "price": adjustment, "quantity": 1})
+    return order_items
 
 
 @api_router.post("/payments/midtrans/charge")
@@ -781,7 +1054,7 @@ async def tripay_charge(body: GatewayChargeIn, user: dict = Depends(get_current_
     sig_msg = f"{merchant}{merchant_ref}{total}"
     signature = hmac.new(private_key.encode(), sig_msg.encode(), hashlib.sha256).hexdigest()
 
-    order_items = [{"sku": i.product_id[:24], "name": i.name[:50], "price": int(i.price), "quantity": int(i.quantity)} for i in body.items]
+    order_items = _tripay_order_items(body.items, disc, tax_amount, total)
 
     payload = {
         "method": body.tripay_method,
@@ -946,6 +1219,7 @@ def _public_display_view(s: Dict[str, Any]) -> Dict[str, Any]:
     total = int(subtotal - int(s.get("discount", 0)) + tax_amount)
     return {
         "code": s["code"],
+        "cashier_name": s.get("cashier_name"),
         "store": s.get("store", {}),
         "payment_methods": s.get("payment_methods", []),
         "items": s.get("items", []),
@@ -1043,6 +1317,7 @@ async def create_display_session(user: dict = Depends(get_current_user)):
             "name", "tagline", "address", "phone", "email", "logo_url",
             "display_bg_color", "display_accent_color", "display_text_color",
             "display_card_color", "display_welcome",
+            "display_slider_images",
         )},
         "payment_methods": [m for m in (store.get("payment_methods") or []) if m.get("enabled")],
         "items": [],
@@ -1248,7 +1523,7 @@ async def display_public(code: str):
     display_keys = (
         "name", "tagline", "address", "phone", "email", "logo_url",
         "display_bg_color", "display_accent_color", "display_text_color",
-        "display_card_color", "display_welcome",
+        "display_card_color", "display_welcome", "display_slider_images",
     )
     session_store = dict(s.get("store") or {})
     for key in display_keys:
@@ -1357,7 +1632,7 @@ async def display_select_method(code: str, body: DisplaySelectMethodIn):
         merchant_ref = f"DSP{datetime.now(timezone.utc).strftime('%y%m%d%H%M%S')}{uuid.uuid4().hex[:4].upper()}"
         sig_msg = f"{merchant}{merchant_ref}{total}"
         signature = hmac.new(private_key.encode(), sig_msg.encode(), hashlib.sha256).hexdigest()
-        order_items = [{"sku": i.product_id[:24], "name": i.name[:50], "price": int(i.price), "quantity": int(i.quantity)} for i in items]
+        order_items = _tripay_order_items(items, disc, tax_amount, total)
         payload = {
             "method": body.tripay_channel,
             "merchant_ref": merchant_ref,

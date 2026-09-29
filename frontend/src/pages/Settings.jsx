@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
   Save, Store, Palette, Printer, Eye, CreditCard, Wallet, QrCode, Building2,
-  Plus, Trash2, GripVertical, Monitor,
+  Plus, Trash2, GripVertical, Monitor, Upload,
 } from "lucide-react";
 import { Card } from "../components/ui/card";
 import { Button } from "../components/ui/button";
@@ -93,6 +93,21 @@ export default function Settings() {
   };
 
   const upd = (patch) => setForm((f) => ({ ...f, ...patch }));
+
+  const uploadSlider = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    const data = new FormData();
+    data.append("file", file);
+    try {
+      const result = await api.post("/settings/display-slider", data, { headers: { "Content-Type": "multipart/form-data" } });
+      upd({ display_slider_images: result.data.images || [] });
+      toast.success("Gambar slider berhasil diunggah");
+    } catch (e) { toast.error(formatApiError(e)); }
+  };
+
+  const removeSlider = (url) => upd({ display_slider_images: (form.display_slider_images || []).filter((item) => item !== url) });
 
   const upsertMethod = (m, idx = null) => {
     setForm((f) => {
@@ -288,6 +303,18 @@ export default function Settings() {
               <div>
                 <Label>Sapaan Layar</Label>
                 <Input value={form.display_welcome || ""} onChange={(e) => upd({ display_welcome: e.target.value })} className="mt-1" placeholder="Selamat Datang" data-testid="display-welcome" />
+              </div>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div><Label>Image Slider Promosi</Label><p className="text-xs text-muted-foreground mt-1">Gambar tampil di bawah nilai total Customer Display. Maksimal 5 MB per gambar.</p></div>
+                  <label className="inline-flex items-center cursor-pointer">
+                    <input type="file" accept="image/png,image/jpeg,image/webp,image/gif" className="hidden" onChange={uploadSlider} />
+                    <span className="inline-flex items-center rounded-md border px-3 py-2 text-sm font-medium hover:bg-secondary"><Upload className="w-4 h-4 mr-2" />Upload</span>
+                  </label>
+                </div>
+                {(form.display_slider_images || []).length > 0 && <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {(form.display_slider_images || []).map((url) => <div key={url} className="relative aspect-video rounded-lg overflow-hidden border bg-secondary"><img src={url} alt="Slider" className="w-full h-full object-cover" /><button type="button" onClick={() => removeSlider(url)} className="absolute top-1 right-1 rounded-md bg-black/70 p-1 text-white hover:bg-red-600" aria-label="Hapus gambar"><Trash2 className="w-3.5 h-3.5" /></button></div>)}
+                </div>}
               </div>
               <ColorInput label="Warna Latar (Background)" value={form.display_bg_color} onChange={(v) => upd({ display_bg_color: v })} testId="color-bg" />
               <ColorInput label="Warna Aksen (Total, Highlight)" value={form.display_accent_color} onChange={(v) => upd({ display_accent_color: v })} testId="color-accent" />

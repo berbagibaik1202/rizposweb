@@ -25,7 +25,7 @@ export default function Categories() {
     api.get("/categories").then((r) => setCats(r.data));
     api.get("/products").then((r) => setProducts(r.data));
   };
-  useEffect(load, []);
+  useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const count = (id) => products.filter((p) => p.category_id === id).length;
 

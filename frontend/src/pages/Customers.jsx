@@ -23,7 +23,7 @@ export default function Customers() {
   const [q, setQ] = useState("");
 
   const load = () => api.get("/customers").then((r) => setItems(r.data));
-  useEffect(load, []);
+  useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const submit = async () => {
     try {

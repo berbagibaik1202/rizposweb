@@ -1,7 +1,7 @@
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useState } from "react";
 import {
-  Store, LayoutDashboard, ShoppingCart, Package, Tag, Users, Receipt, BarChart3, UserCog, LogOut, Menu, X, Settings as SettingsIcon
+  Store, LayoutDashboard, ShoppingCart, Package, Tag, Users, Receipt, BarChart3, UserCog, LogOut, Menu, X, Settings as SettingsIcon, Truck, Landmark
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useStore } from "../context/StoreContext";
@@ -14,6 +14,8 @@ const nav = [
   { to: "/categories", label: "Kategori", icon: Tag },
   { to: "/customers", label: "Pelanggan", icon: Users },
   { to: "/transactions", label: "Transaksi", icon: Receipt },
+  { to: "/purchases", label: "Pembelian", icon: Truck, adminOnly: true },
+  { to: "/finance", label: "Keuangan", icon: Landmark, adminOnly: true },
   { to: "/reports", label: "Laporan", icon: BarChart3 },
   { to: "/users", label: "Pengguna", icon: UserCog, adminOnly: true },
   { to: "/settings", label: "Pengaturan", icon: SettingsIcon, adminOnly: true },

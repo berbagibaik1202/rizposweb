@@ -21,7 +21,7 @@ export default function Users() {
   const [editId, setEditId] = useState(null);
 
   const load = () => api.get("/users").then((r) => setItems(r.data));
-  useEffect(load, []);
+  useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const startAdd = () => { setForm({ name: "", email: "", password: "", role: "cashier" }); setEditId(null); setOpen(true); };
   const startEdit = (u) => { setForm({ name: u.name, email: u.email, password: "", role: u.role }); setEditId(u.id); setOpen(true); };

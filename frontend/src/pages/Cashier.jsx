@@ -127,7 +127,7 @@ export default function Cashier() {
       if (methods.length) setPaymentMethods(methods);
     }).catch(() => {});
   };
-  useEffect(load, []);
+  useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load Midtrans Snap.js
   useEffect(() => {
@@ -203,7 +203,7 @@ export default function Cashier() {
           force_reset: cart.length === 0,
         });
       } catch {}
-      displayWindowRef.current = window.open(`/display/${data.code}`, "rizpos-display", "width=1024,height=720");
+      displayWindowRef.current = window.open("/display", "rizpos-display", "width=1024,height=720");
       toast.success(`Layar pelanggan aktif · ${data.code}`);
     } catch (e) { toast.error(formatApiError(e)); }
   };
@@ -726,7 +726,7 @@ export default function Cashier() {
               <p className="text-xs text-muted-foreground mt-2">Bagikan link ini ke perangkat kedua. Keranjang akan otomatis tersinkron.</p>
             </div>
             <div className="grid grid-cols-2 gap-2">
-              <Button variant="outline" onClick={() => window.open(`/display/${displayCode}`, "rizpos-display", "width=1024,height=720")}>
+              <Button variant="outline" onClick={() => window.open("/display", "rizpos-display", "width=1024,height=720")}>
                 <ExternalLink className="w-4 h-4 mr-2" /> Buka Ulang
               </Button>
               <Button variant="destructive" onClick={closeDisplay}>Tutup Session</Button>
@@ -737,14 +737,16 @@ export default function Cashier() {
 
       {/* Receipt Modal */}
       <Dialog open={showReceipt} onOpenChange={setShowReceipt}>
-        <DialogContent className="max-w-sm p-0 overflow-hidden">
-          <DialogHeader className="p-4 pb-2">
+        <DialogContent className="max-w-sm max-h-[90vh] p-0 overflow-hidden flex flex-col">
+          <DialogHeader className="shrink-0 p-4 pb-2">
             <DialogTitle className="font-heading">Struk Digital</DialogTitle>
           </DialogHeader>
-          {lastTx && <Receipt tx={lastTx} cashier={user?.name} />}
-          <div className="p-4 pt-2 grid grid-cols-2 gap-2">
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-2">
+            {lastTx && <Receipt tx={lastTx} cashier={user?.name} preview />}
+          </div>
+          <div className="shrink-0 p-4 pt-2 grid grid-cols-2 gap-2 bg-background">
             <Button variant="outline" onClick={() => setShowReceipt(false)}>Tutup</Button>
-            <Button onClick={() => printReceipt("rizpos-receipt")} data-testid="print-receipt"><Printer className="w-4 h-4 mr-2" />Cetak</Button>
+              <Button onClick={() => printReceipt("rizpos-receipt")} data-testid="print-receipt"><Printer className="w-4 h-4 mr-2" />Cetak</Button>
           </div>
         </DialogContent>
       </Dialog>

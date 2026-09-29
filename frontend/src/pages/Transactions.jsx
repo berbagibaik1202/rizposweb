@@ -22,7 +22,7 @@ export default function Transactions() {
     if (pm !== "all") params.payment_method = pm;
     api.get("/transactions", { params }).then((r) => setItems(r.data));
   };
-  useEffect(load, [pm]);
+  useEffect(() => { load(); }, [pm]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="space-y-6" data-testid="transactions-page">
