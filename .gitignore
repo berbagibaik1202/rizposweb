@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.venv/
+venv/
+
+# Environment files and credentials
+.env
+.env.*
+env.txt
+backend/.env
+backend/env.txt
+frontend/.env
+frontend/env.txt
+
+# Node / frontend generated files
+frontend/node_modules/
+frontend/build/
+frontend/coverage/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS and editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Local runtime/log files
+*.log
+*.pid
+
+# Local tooling and private notes
+.tools/
+memory/test_credentials.md

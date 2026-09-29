@@ -1,0 +1,133 @@
+{
+  "brand": {
+    "name": "RizPOS",
+    "tagline": "Sistem Point of Sale Modern, Cepat & Presisi",
+    "persona": "High-speed Multi-purpose POS for retail, F&B, cafes, and boutiques. Tactical, high-contrast, zero-friction workflow."
+  },
+  "color_palette": {
+    "theme_archetype": "TACTICAL PERFORMANCE & WARM PRECISION",
+    "dark_mode": {
+      "background": "#0F1115",
+      "surface": "#161920",
+      "surface_hover": "#1E222B",
+      "border": "#2A2F3D",
+      "primary": "#F97316",
+      "primary_hover": "#EA580C",
+      "primary_foreground": "#FFFFFF",
+      "secondary": "#1E293B",
+      "secondary_foreground": "#E2E8F0",
+      "text_main": "#F8FAFC",
+      "text_muted": "#94A3B8",
+      "success": "#10B981",
+      "warning": "#F59E0B",
+      "danger": "#EF4444",
+      "accent": "#06B6D4"
+    },
+    "light_mode": {
+      "background": "#F8FAFC",
+      "surface": "#FFFFFF",
+      "surface_hover": "#F1F5F9",
+      "border": "#E2E8F0",
+      "primary": "#EA580C",
+      "primary_hover": "#C2410C",
+      "primary_foreground": "#FFFFFF",
+      "secondary": "#EDF2F7",
+      "secondary_foreground": "#0F172A",
+      "text_main": "#0F172A",
+      "text_muted": "#64748B",
+      "success": "#059669",
+      "warning": "#D97706",
+      "danger": "#DC2626",
+      "accent": "#0891B2"
+    },
+    "forbidden_colors": ["#7351B7", "#1B93A4", "pure #000000 without tint"]
+  },
+  "typography": {
+    "heading_font": "Outfit, 'Plus Jakarta Sans', sans-serif",
+    "body_font": "'DM Sans', 'IBM Plex Sans', sans-serif",
+    "mono_font": "'JetBrains Mono', 'Fira Code', monospace",
+    "forbidden_fonts": ["Space Grotesk", "Inter (for main headings)", "Roboto (for main headings)"],
+    "hierarchy": {
+      "h1_hero": "text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight",
+      "h2_section": "text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight",
+      "h3_card": "text-lg sm:text-xl font-semibold",
+      "body": "text-sm sm:text-base leading-relaxed",
+      "small_label": "text-xs font-semibold uppercase tracking-wider text-muted-foreground",
+      "price_highlight": "font-mono font-bold text-lg sm:text-xl"
+    }
+  },
+  "layout_and_spacing": {
+    "grid_mode": "High Density Grid (Mode B for Dashboards) + Tactile Touch Grid for Cashier",
+    "spacing_scale": "p-2, p-4, p-6, p-8, gap-3, gap-4, gap-6",
+    "border_radius": "rounded-xl for cards & grid items, rounded-lg for buttons & inputs",
+    "container_padding": "p-4 sm:p-6 lg:p-8",
+    "cashier_layout": {
+      "desktop": "Grid 8 cols: Left 5 cols (Product catalog & filters) + Right 3 cols (Cart & Checkout drawer)",
+      "tablet": "Grid 2 cols or split screen with bottom cart summary trigger",
+      "mobile": "Single column product feed with bottom floating sticky Cart Bar (opens sheet drawer on tap)"
+    }
+  },
+  "responsive": {
+    "breakpoint": "mobile-first",
+    "layout": "Mobile-first responsive layout. Sidebar collapses into touch drawer on mobile; Cashier cart slides out as full sheet on smaller screens.",
+    "typography": "Mobile responsive typography scale with touch-friendly input targets (min 44px height for mobile buttons).",
+    "overflow_guard": "overflow-x-hidden on root wrapper, table wrappers with overflow-x-auto, subgrid wrapping for cart items.",
+    "tap_targets": "Minimum 44x44px for buttons, cart step adjusters (+/-), category selector pills, and fast cash payment buttons."
+  },
+  "key_features_design_specs": {
+    "auth": {
+      "page_style": "Split layout with brand graphic on left (hero image/stats preview) + clean glassmorphic form card on right",
+      "role_toggle": "Tab or radio toggle for Admin vs Cashier quick switch with default demo credentials auto-fill button for fast evaluation"
+    },
+    "dashboard": {
+      "metrics_cards": "4 high-impact metric cards (Today's Revenue, Transaction Count, Top Selling Category, Low Stock Warning) with micro trend indicators",
+      "charts": "Recharts / Shadcn Chart area/line graph for Daily Sales Trend + Donut chart for Category Revenue Split",
+      "alerts": "Low stock alert list with quick 'Restock' trigger action button"
+    },
+    "pos_cashier": {
+      "search_bar": "Search by product name or SKU + Barcode simulator button + Category pills",
+      "product_card": "Touch-friendly card with product thumbnail image, title, category badge, stock pill, price tag in IDR (Rp), and hover/active scale micro-interaction",
+      "cart_drawer": "Itemized list with quantity +/- buttons, discount selector (%), tax toggle (11% PPN), total breakdown, customer selector dropdown, and 'Process Payment' CTA",
+      "payment_modal": "Support Cash (with quick change counter & exact amount chips Rp50k, Rp100k), Card, QRIS (simulated QR code with countdown timer and instant success animation)",
+      "digital_receipt": "Print preview modal with store header, order ID, cashier name, customer info, itemized list, payment method, tax/discount breakdown, print action & download PDF simulation"
+    },
+    "management_modules": {
+      "products": "Data table with thumbnails, category color tags, stock status indicator, search/filter, and modal form with live preview",
+      "categories": "Grid of categories with icon pickers and item counter badges",
+      "customers": "Customer database with phone, total spent, loyalty points, and recent purchase popover",
+      "transactions": "Full transaction log with date range picker, payment status filter, view receipt modal, and export options",
+      "reports": "Sales reports by date, product, category with date range filter and export summary",
+      "stock": "Inventory management grid with quick stock adjustment (+ / -) modal and low-stock filter",
+      "users": "User management matrix for Admin only with role badge (Admin / Cashier) and status switch"
+    }
+  },
+  "image_urls": {
+    "products": [
+      {
+        "category": "Bakery & Coffee",
+        "url": "https://images.unsplash.com/photo-1534432182912-63863115e106?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjY2NzN8MHwxfHNlYXJjaHwyfHxyZXRhaWwlMjBjYWZlJTIwY29mZmVlJTIwYmFrZXJ5JTIwcHJvZHVjdCUyMGl0ZW1zfGVufDB8fHx8MTc5MDYwNDU4MHww&ixlib=rb-4.1.0&q=85",
+        "title": "Artisan Chocolate Pastry"
+      },
+      {
+        "category": "Cafe Ambience",
+        "url": "https://images.unsplash.com/photo-1601205741712-b261aff33a7d?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjY2NzN8MHwxfHNlYXJjaHwxfHxyZXRhaWwlMjBjYWZlJTIwY29mZmVlJTIwYmFrZXJ5JTIwcHJvZHVjdCUyMGl0ZW1zfGVufDB8fHx8MTc5MDYwNDU4MHww&ixlib=rb-4.1.0&q=85",
+        "title": "RizPOS Store Counter"
+      },
+      {
+        "category": "Bakery Display",
+        "url": "https://images.unsplash.com/photo-1711672284661-bd70e38f31b2?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjY2NzN8MHwxfHNlYXJjaHw0fHxyZXRhaWwlMjBjYWZlJTIwY29mZmVlJTIwYmFrZXJ5JTIwcHJvZHVjdCUyMGl0ZW1zfGVufDB8fHx8MTc5MDYwNDU4MHww&ixlib=rb-4.1.0&q=85",
+        "title": "Fresh Baked Bread Assortment"
+      }
+    ]
+  },
+  "instructions_to_main_agent": [
+    "Ensure all interactive elements have data-testid attributes (e.g., data-testid='pos-product-card-1', data-testid='cashier-checkout-button').",
+    "Use lucide-react or @heroicons/react for crisp UI icons.",
+    "Implement JWT auth state simulation stored in localStorage with default demo accounts (Admin: admin@rizpos.id / admin123; Cashier: cashier@rizpos.id / cashier123).",
+    "Currency formatting should default to Indonesian Rupiah (Rp X.XXX.XXX) with clean string formatting helper functions.",
+    "Include simulated QRIS payment modal featuring an animated QR code and payment completion state.",
+    "Include Digital Receipt modal with Print Preview (using CSS @media print or custom print frame overlay).",
+    "Maintain high-contrast readability with dark/light mode toggle support.",
+    "Mobile-first responsiveness: ensure sidebars collapse into sheet menu and cashier cart folds into a bottom bar on mobile screens."
+  ]
+}
